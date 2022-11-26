@@ -36,10 +36,3 @@ class ValueHeadLayer(nn.Module):
         return out
 
 
-# Test the value head layer
-x = torch.randn(1, 8, 16, 16)
-model = ValueHeadLayer(8, shape=x.shape)
-print(model)
-output = model(x)
-print(output.shape)
-print(output)

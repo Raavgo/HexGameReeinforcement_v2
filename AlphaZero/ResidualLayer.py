@@ -22,7 +22,7 @@ class ResidualLayer(nn.Module):
         self.conv2 = build_convolution(filter_size, filter_size, kernel_size, skip_connection=True)
         self.down_sample = nn.Sequential(
             nn.Conv2d(in_channels, filter_size, kernel_size=down_sample_kernel),
-            nn.BatchNorm2d(out_channels)
+            nn.BatchNorm2d(filter_size)
         )
         self.relu = nn.ReLU()
 
@@ -34,17 +34,3 @@ class ResidualLayer(nn.Module):
         return out
 
 
-# Test the residual layer
-x = torch.randn(8, 8, 16, 16)
-
-in_channels = 4
-out_channels = 256
-kernel_size = (3, 3)
-depth = 1
-
-input = torch.randn(16, in_channels, 50, 100)
-model = ResidualLayer(in_channels, kernel_size)
-print(model)
-output = model(input)
-print(output.shape)
-print(output)
