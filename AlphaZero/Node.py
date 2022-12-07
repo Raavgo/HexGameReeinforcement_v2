@@ -38,7 +38,9 @@ class Node:
 import numpy as np
 
 board = np.random.randint(0, 3, (8, 8)) - 1
-
+print(board.shape)
+board.reshape(1, 1, 8, 8)
+print(board.shape)
 def dummy_play(board, turn):
     import random
     from copy import deepcopy
