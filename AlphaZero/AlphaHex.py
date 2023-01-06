@@ -23,43 +23,49 @@ class AlphaHex(nn.Module):
         self.dropout = dropout
 
         self.conv_1 = build_convolution(in_channels=1, filter_size=filter_size, kernel=(3, 3), stride=(1, 1), padding=1)
-        self.conv_2 = build_convolution(in_channels=filter_size, filter_size=filter_size, kernel=(3, 3), stride=(1, 1))
+        self.conv_2 = build_convolution(in_channels=filter_size, filter_size=filter_size, kernel=(3, 3), stride=(1, 1), padding=0)
 
-        self.linear_layer = nn.Linear(512, 1024)
+        self.linear_layer = nn.Linear(1024, 512)
         self.linear_layer_2 = nn.Linear(1024, 512)
 
         self.batch_norm = nn.BatchNorm1d(1024)
         self.batch_norm_2 = nn.BatchNorm1d(512)
 
-        self.policy_head = PolicyHeadLayer(512, board_size**2)
-        self.value_head = ValueHeadLayer(512)
+        self.policy_head = PolicyHeadLayer(1024, board_size**2)
+        self.value_head = ValueHeadLayer(1024)
 
     def forward(self, x):
         out = x.view(-1, 1, self.board_size, self.board_size)
+
         out = self.conv_1(out)
-
         out = self.conv_2(out)
         out = self.conv_2(out)
         out = self.conv_2(out)
 
-        #out = out.view(-1)
+        out = out.view(-1)
         self.linear_layer(out)
-        #out = F.dropout(F.relu(self.batch_norm()), p=self.dropout, training=self.training)
-        out = F.dropout(F.relu(self.batch_norm_2(self.linear_layer_2(out))), p=self.dropout, training=self.training)
 
         policy = self.policy_head(out)
         value = self.value_head(out)
         return policy, value
 
 
-# Test the AlphaHex model
-x = torch.randn(1, 1, 8, 8)
-print(x.shape)
+if __name__ == "__main__":
+    from Enviorment.hex_engine_0_5 import hexPosition as HexGame
+    g = HexGame(8)
+    # Test the AlphaHex model
+    print(g.board)
+    x = torch.Tensor(g.board)
+    #x = torch.randn(1, 1, 8, 8)
+    print(x.shape)
 
 
 
-model = AlphaHex(filter_size=256, board_size=8)
-print(model(x))
+    model = AlphaHex(filter_size=256, board_size=8)
+    probs, val = model(x)
+    print(val.item())
+    #print(model(x))
+
 #print(model)
 #p, v = model(x)
 #print(p,v)
