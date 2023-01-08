@@ -1,3 +1,5 @@
+import torch
+
 from AlphaZero.MCTS import MCTS
 from AlphaZero.AlphaHex import AlphaHex
 from Enviorment.hex_engine_0_5 import hexPosition as HexGame
@@ -13,10 +15,11 @@ def reshapedSearchProbs(search_probs):
         reshaped_probs[move[0]][move[1]] = prob
     return reshaped_probs.reshape(64)
 
-
+from copy import  deepcopy
 def play_game(game, player1, player2, show=True):
     """Plays a game then returns the final state."""
     new_game_data = []
+
     while not game.winner > 0:
         if show:
             print(game)
@@ -24,15 +27,18 @@ def play_game(game, player1, player2, show=True):
             m = player1.getMove(game)
         else:
             m = player2.getMove(game)
-        if m not in game.availableMoves:
+
+        if m not in game.getActionSpace():
             raise Exception("invalid move: " + str(m))
+        print(player1.MCTS.visited_nodes)
         node = player1.MCTS.visited_nodes[game]
+
         if game.player == 1:
             search_probs = player1.MCTS.getSearchProbabilities(node)
             board = game.board
         if game.player == 2:
             search_probs = player2.MCTS.getSearchProbabilities(node)
-            board = -game.board.T
+            board = -torch.Tensor(game.board).T
         reshaped_search_probs = reshapedSearchProbs(search_probs)
         if game.player == 2:
             reshaped_search_probs = reshaped_search_probs.reshape((8, 8)).T.reshape(64)
@@ -41,7 +47,7 @@ def play_game(game, player1, player2, show=True):
             new_game_data.append((board, reshaped_search_probs, None))
         if np.random.random() > 0.5:
             new_game_data.append((board, reshaped_search_probs, None))
-        game = game.makeMove(m)
+        game.makeMove(m, game.player)
     if show:
         print(game, "\n")
 

@@ -134,15 +134,15 @@ class MCTS:
 
     def getSearchProbabilities(self, root_node):
         children = root_node.children
-        print(children)<
+        print(children)
         items = children.items()
         print(items)
 
         child_visits = [child.visits for action, child in items]
         sum_visits = sum(child_visits)
-        print(child_visits)
+        print(child_visits, sum_visits)
         if sum_visits != 0:
             normalized_probs = {action: (child.visits / sum_visits) for action, child in items}
         else:
-            normalized_probs = {action: (child.visits / len(child_visits)) for action, child in items}
+            normalized_probs = {action: (1 / len(child_visits)) for action, child in items}
         return normalized_probs
