@@ -163,6 +163,6 @@ if __name__ == "__main__":
     training_data = np.load('training_data_raw_0.npy', allow_pickle=True)
     current_model = AlphaHexLightning()
 
-    train(2, current_model)
+    train(20, current_model)
     end = time.time()
     print(end - start)
