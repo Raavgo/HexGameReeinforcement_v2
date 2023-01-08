@@ -18,7 +18,10 @@ def reshapedSearchProbs(search_probs):
         reshaped_probs[move[0]][move[1]] = prob
     return reshaped_probs.reshape(64)
 
-from copy import  deepcopy
+
+from copy import deepcopy
+
+
 def play_game(game, player1, player2, show=True):
     """Plays a game then returns the final state."""
     new_game_data = []
@@ -40,7 +43,7 @@ def play_game(game, player1, player2, show=True):
             board = -game.board.T
         reshaped_search_probs = reshapedSearchProbs(search_probs)
         if game.turn == -1:
-            reshaped_search_probs = reshaped_search_probs.reshape((8,8)).T.reshape(64)
+            reshaped_search_probs = reshaped_search_probs.reshape((8, 8)).T.reshape(64)
 
         if np.random.random() > 0.5:
             new_game_data.append((board, reshaped_search_probs, None))
@@ -52,7 +55,7 @@ def play_game(game, player1, player2, show=True):
 
         if game.winner != 0:
             print("player", game.winner, "(", end='')
-            print((player1.name if game.winner == 1 else player2.name)+") wins")
+            print((player1.name if game.winner == 1 else player2.name) + ") wins")
         else:
             print("it's a draw")
     outcome = 1 if game.winner == 1 else 0
@@ -92,12 +95,13 @@ def formatTrainingData(training_data):
 
 
 def trainModel(current_model, training_data, iteration, trainer):
-
     new_model = current_model
 
     train_x, train_y = formatTrainingData(training_data)
-    np.savez('training_data_'+str(iteration), train_x, train_y['policy_out'], train_y['value_out'])
-    loader = DataLoader(TensorDataset(torch.Tensor(train_x), torch.Tensor(train_y['policy_out']), torch.Tensor(train_y['value_out'])), num_workers=16)
+    np.savez('training_data_' + str(iteration), train_x, train_y['policy_out'], train_y['value_out'])
+    loader = DataLoader(
+        TensorDataset(torch.Tensor(train_x), torch.Tensor(train_y['policy_out']), torch.Tensor(train_y['value_out'])),
+        num_workers=2)
     trainer.fit(new_model, loader, None)
     trainer.save_checkpoint('model_' + str(iteration) + '.ckpt')
     return new_model
@@ -107,8 +111,8 @@ def evaluateModel(new_model, current_model, iteration, trainer):
     numEvaluationGames = 40
     newChallengerWins = 0
     threshold = 0.55
-    player_new_m = DeepLearningPlayer(new_model, rollouts=50)
-    player_old_m = DeepLearningPlayer(current_model, rollouts=50)
+    player_new_m = DeepLearningPlayer(new_model, rollouts=400)
+    player_old_m = DeepLearningPlayer(current_model, rollouts=400)
 
     # play 40 games between best and latest models
     for i in range(int(numEvaluationGames // 2)):
@@ -141,14 +145,16 @@ def evaluateModel(new_model, current_model, iteration, trainer):
 def train(iterations=10, current_model=None):
     if current_model is None:
         current_model = AlphaHex(board_size=8)
-    trainer = pl.Trainer(max_epochs=50, log_every_n_steps=10)
+
     for i in range(iterations):
+        trainer = pl.Trainer(max_epochs=50, log_every_n_steps=10, accelerator="gpu", devices=1)
         training_data = []
 
-        training_data = selfPlay(current_model, 1, training_data)
+        training_data = selfPlay(current_model, 200, training_data)
         np.save('training_data_raw_0', training_data)
-        new_model = trainModel(current_model, training_data, i,trainer)
+        new_model = trainModel(current_model, training_data, i, trainer)
         current_model = evaluateModel(new_model, current_model, i, trainer)
+
 
 if __name__ == "__main__":
     import time
