@@ -20,13 +20,13 @@ class DeepLearningPlayer:
             root_node = self.MCTS.visited_nodes[game]
         else:
             root_node = self.MCTS.expandRoot(game)
-        print(root_node)
+
         self.MCTS.runSearch(root_node, self.rollouts)
         searchProbabilities = self.MCTS.getSearchProbabilities(root_node)
         moves = list(searchProbabilities.keys())
         probs = list(searchProbabilities.values())
         prob_items = searchProbabilities.items()
-        print(probs)
+
         game.board = init_board
         if self.competitive:
             best_move = max(prob_items, key=lambda c: c[1])

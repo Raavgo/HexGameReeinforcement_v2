@@ -1,7 +1,8 @@
 from AlphaZero.Node import Node
-from numpy.random import  choice
+from numpy.random import choice
 import numpy as np
 import torch
+from numba import jit
 
 class MCTS:
     def __init__(self, model, UCB_const=2, use_policy=True, use_value=True):
@@ -14,7 +15,7 @@ class MCTS:
     def runSearch(self, root, n_searches):
         for i in range(n_searches):
             selected_node = root
-            available_actions = selected_node.state.getActionSpace()
+            available_actions = selected_node.state.availableMoves
 
             while len(available_actions) == len(selected_node.children) and not selected_node.state.winner > 0:
                 selected_node = self._select(selected_node, debug=False)
@@ -24,10 +25,10 @@ class MCTS:
                     if selected_node.state not in self.visited_nodes:
                         selected_node = self._expand(selected_node, debug=False)
 
-                    outcome = selected_node.value if root.state.player == 1 else 1 - selected_node.value
+                    outcome = selected_node.value if root.state.turn == 1 else 1 - selected_node.value
                     self._backpropagate(selected_node, root, outcome, debug=False)
                 else:
-                    moves = selected_node.state.getActionSpace()
+                    moves = selected_node.state.availableMoves
                     np.random.shuffle(moves)
                     for move in moves:
                         if not selected_node.state.makeMove(move) in self.visited_nodes:
@@ -36,9 +37,9 @@ class MCTS:
                 self._backpropagate(selected_node, root, selected_node.state.winner, debug=False)
 
     def create_children(self, parent_node):
-        if len(parent_node.state.getActionSpace()) != len(parent_node.children):
-            for move in parent_node.state.getActionSpace():
-                next_state = parent_node.state.makeMove(move, parent_node.state.player)
+        if len(parent_node.state.availableMoves) != len(parent_node.children):
+            for move in parent_node.state.availableMoves:
+                next_state = parent_node.state.makeMove(move)
                 child_node = Node(next_state, parent_node, parent_node.prior_policy[move[0]][move[1]])
                 parent_node.children[move] = child_node
 
@@ -65,14 +66,14 @@ class MCTS:
 
     def modelPredict(self, state):
         board = torch.Tensor(state.board)
-        if state.player == 1:
+        if state.turn == 1:
             board = (-board).T.reshape((1, 1, 8, 8))
         else:
             board = board.reshape((1, 1, 8, 8))
         probs, value = self.model(board)
         value = value.item()
         probs = probs.reshape((8, 8))
-        if state.player == 1:
+        if state.turn == 1:
             probs = probs.T
         return probs, value
 
@@ -101,7 +102,7 @@ class MCTS:
             value = self._simulate(selected_node)
         if debug:
             print('expanding node', selected_node.state)
-        selected_node.value = value.item()
+        selected_node.value = value
         self.visited_nodes[selected_node.state] = selected_node
         self.create_children(selected_node)
         return selected_node
@@ -110,10 +111,10 @@ class MCTS:
         # returns outcome of simulated playout
         state = next_node.state
         while not state.isTerminal:
-            available_moves = state.getActionSpace()
+            available_moves = state.availableMoves
             index = choice(range(len(available_moves)))
             move = available_moves[index]
-            state = state.makeMove(move, state.player)
+            state = state.makeMove(move, state.turn)
         return (state.winner + 1) / 2
 
     def _backpropagate(self, selected_node, root_node, outcome, debug=False):
@@ -134,15 +135,12 @@ class MCTS:
 
     def getSearchProbabilities(self, root_node):
         children = root_node.children
-        print(children)
         items = children.items()
-        print(items)
-
         child_visits = [child.visits for action, child in items]
         sum_visits = sum(child_visits)
-        print(child_visits, sum_visits)
+        # print(child_visits)
         if sum_visits != 0:
-            normalized_probs = {action: (child.visits / sum_visits) for action, child in items}
+            normalized_probs = {action: (child.visits/sum_visits) for action, child in items}
         else:
-            normalized_probs = {action: (1 / len(child_visits)) for action, child in items}
+            normalized_probs = {action: (child.visits/len(child_visits)) for action, child in items}
         return normalized_probs

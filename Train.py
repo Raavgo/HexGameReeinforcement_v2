@@ -1,9 +1,12 @@
 import torch
 
 from AlphaZero.MCTS import MCTS
+import pytorch_lightning as pl
+from AlphaZero.AlphaHexLightning import AlphaHexLightning
 from AlphaZero.AlphaHex import AlphaHex
-from Enviorment.hex_engine_0_5 import hexPosition as HexGame
+from Enviorment.HexGame import HexGame
 from AlphaZero.DeeplearningPlayer import DeepLearningPlayer
+from torch.utils.data import TensorDataset, DataLoader
 import numpy as np
 
 
@@ -19,51 +22,47 @@ from copy import  deepcopy
 def play_game(game, player1, player2, show=True):
     """Plays a game then returns the final state."""
     new_game_data = []
-
-    while not game.winner > 0:
+    while not game.isTerminal:
         if show:
             print(game)
-        if game.player == 1:
+        if game.turn == 1:
             m = player1.getMove(game)
         else:
             m = player2.getMove(game)
-
-        if m not in game.getActionSpace():
+        if m not in game.availableMoves:
             raise Exception("invalid move: " + str(m))
-        print(player1.MCTS.visited_nodes)
         node = player1.MCTS.visited_nodes[game]
-
-        if game.player == 1:
+        if game.turn == 1:
             search_probs = player1.MCTS.getSearchProbabilities(node)
             board = game.board
-        if game.player == 2:
+        if game.turn == -1:
             search_probs = player2.MCTS.getSearchProbabilities(node)
-            board = -torch.Tensor(game.board).T
+            board = -game.board.T
         reshaped_search_probs = reshapedSearchProbs(search_probs)
-        if game.player == 2:
-            reshaped_search_probs = reshaped_search_probs.reshape((8, 8)).T.reshape(64)
+        if game.turn == -1:
+            reshaped_search_probs = reshaped_search_probs.reshape((8,8)).T.reshape(64)
 
         if np.random.random() > 0.5:
             new_game_data.append((board, reshaped_search_probs, None))
         if np.random.random() > 0.5:
             new_game_data.append((board, reshaped_search_probs, None))
-        game.makeMove(m, game.player)
+        game = game.makeMove(m)
     if show:
         print(game, "\n")
 
         if game.winner != 0:
             print("player", game.winner, "(", end='')
-            print((player1.name if game.winner == 1 else player2.name) + ") wins")
+            print((player1.name if game.winner == 1 else player2.name)+") wins")
         else:
             print("it's a draw")
-    outcome = game.winner
+    outcome = 1 if game.winner == 1 else 0
     new_training_data = [(board, searchProbs, outcome) for (board, searchProbs, throwaway) in new_game_data]
     # add training data
     # training_data += new_training_data
     return game, new_training_data
 
 
-def selfPlay(current_model, numGames, training_data):
+def selfPlay(current_model, numGames, training_data, show=False):
     for i in range(numGames):
         print('Game #: ' + str(i))
 
@@ -71,7 +70,7 @@ def selfPlay(current_model, numGames, training_data):
         player1 = DeepLearningPlayer(current_model, rollouts=400)
         player2 = DeepLearningPlayer(current_model, rollouts=400)
 
-        game, new_training_data = play_game(g, player1, player2, False)
+        game, new_training_data = play_game(g, player1, player2, show)
         training_data += new_training_data
     return training_data
 
@@ -92,40 +91,49 @@ def formatTrainingData(training_data):
     return train_x, train_y
 
 
-def trainModel(current_model, training_data, iteration):
+def trainModel(current_model, training_data, iteration, trainer):
+
     new_model = current_model
+
     train_x, train_y = formatTrainingData(training_data)
-    np.savez('training_data_' + str(iteration), train_x, train_y['policy_out'], train_y['value_out'])
-    # TODO: save training data to npz
-    new_model.fit(train_x, train_y, verbose=1, validation_split=0.2, epochs=10, shuffle=True)
-    new_model.save('new_model_iteration_' + str(iteration) + '.h5')
+    np.savez('training_data_'+str(iteration), train_x, train_y['policy_out'], train_y['value_out'])
+    loader = DataLoader(TensorDataset(torch.Tensor(train_x), torch.Tensor(train_y['policy_out']), torch.Tensor(train_y['value_out'])), num_workers=16)
+    trainer.fit(new_model, loader, None)
+    trainer.save_checkpoint('model_' + str(iteration) + '.ckpt')
     return new_model
 
 
-def evaluateModel(new_model, current_model, iteration):
+def evaluateModel(new_model, current_model, iteration, trainer):
     numEvaluationGames = 40
     newChallengerWins = 0
     threshold = 0.55
+    player_new_m = DeepLearningPlayer(new_model, rollouts=50)
+    player_old_m = DeepLearningPlayer(current_model, rollouts=50)
 
-    # play 400 games between best and latest models
+    # play 40 games between best and latest models
     for i in range(int(numEvaluationGames // 2)):
         g = HexGame(8)
-        game, _ = play_game(g, DeepLearningPlayer(new_model, rollouts=400),
-                            DeepLearningPlayer(current_model, rollouts=400), False)
+        game, _ = play_game(g, player_new_m, player_old_m, show=False)
+
         if game.winner:
             newChallengerWins += game.winner
+
     for i in range(int(numEvaluationGames // 2)):
         g = HexGame(8)
-        game, _ = play_game(g, DeepLearningPlayer(current_model, rollouts=400),
-                            DeepLearningPlayer(new_model, rollouts=400), False)
+        game, _ = play_game(g, player_old_m, player_new_m, show=False)
+
         if game.winner == -1:
-            newChallengerWins += game.winner
+            newChallengerWins += abs(game.winner)
+
     winRate = newChallengerWins / numEvaluationGames
-    print('evaluation winrate' + str(winRate))
+
+    print('evaluation winrate ' + str(winRate))
     text_file = open("evaluation_results.txt", "w")
     text_file.write("Evaluation results for iteration" + str(iteration) + ": " + str(winRate) + '\n')
     text_file.close()
+
     if winRate >= threshold:
+        trainer.save_checkpoint('model_best.ckpt')
         return new_model
     return current_model
 
@@ -133,16 +141,22 @@ def evaluateModel(new_model, current_model, iteration):
 def train(iterations=10, current_model=None):
     if current_model is None:
         current_model = AlphaHex(board_size=8)
+    trainer = pl.Trainer(max_epochs=50, log_every_n_steps=10)
     for i in range(iterations):
         training_data = []
 
-        training_data = selfPlay(current_model, 100, training_data)
-        new_model = trainModel(current_model, training_data, i)
-        current_model = evaluateModel(new_model, current_model, i)
+        training_data = selfPlay(current_model, 1, training_data)
+        np.save('training_data_raw_0', training_data)
+        new_model = trainModel(current_model, training_data, i,trainer)
+        current_model = evaluateModel(new_model, current_model, i, trainer)
 
 if __name__ == "__main__":
-    training_data = []
-    current_model = AlphaHex(board_size=8)
-    training_data = selfPlay(current_model, 100, training_data)
+    import time
 
-    #train(1)
+    start = time.time()
+    training_data = np.load('training_data_raw_0.npy', allow_pickle=True)
+    current_model = AlphaHexLightning()
+
+    train(2, current_model)
+    end = time.time()
+    print(end - start)

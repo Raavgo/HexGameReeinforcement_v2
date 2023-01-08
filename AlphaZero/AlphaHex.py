@@ -17,7 +17,7 @@ args = dict({
 })
 
 class AlphaHex(nn.Module):
-    def __init__(self, filter_size=256, board_size=7, dropout=0.3):
+    def __init__(self, filter_size=256, board_size=8, dropout=0.3):
         super(AlphaHex, self).__init__()
         self.board_size = board_size
         self.dropout = dropout
