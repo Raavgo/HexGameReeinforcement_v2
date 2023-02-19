@@ -1,7 +1,7 @@
 import torch
 from AlphaZero.AlphaHex import AlphaHex
 from Enviorment.hex_engine_0_5 import hexPosition as HexGame
-from AlphaZero.DeeplearningPlayer import DeepLearningPlayer
+from AlphaZero.Player import DeepLearningPlayer
 
 
 x = torch.randn(1, 1, 8, 8)

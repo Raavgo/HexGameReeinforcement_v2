@@ -129,7 +129,7 @@ class MCTS:
                 print('backpropping')
             current_node.updateValue(outcome, debug=False)
             current_node = current_node.parent_node
-            # print(current_node.visits)
+
         # update root node
         root_node.updateValue(outcome)
 

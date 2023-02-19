@@ -1,3 +1,5 @@
+from numpy import zeros
+
 class hexPosition(object):
     """
     The class hexPosition stores data on a hex board position. The slots of an object are: size (an integer between 2 and 26), board (an array, 0=noStone, 1=whiteStone, 2=blackStone), winner (0=noWin, 1=whiteWin, 2=blackWin), and player (the player that has to make a moove, 1=white, 2=black).
@@ -5,7 +7,7 @@ class hexPosition(object):
 
     def __init__(self, size=7):
         self.size = max(2, min(size, 26))
-        self.board = [[0 for x in range(max(2, min(size, 26)))] for y in range(max(2, min(size, 26)))]
+        self.board = zeros((self.size, self.size))
         self.player = 1
         self.winner = 0
 
@@ -25,8 +27,7 @@ class hexPosition(object):
         assert (player_num == self.player), "It is not this player's turn."
         self.board[coord[0]][coord[1]] = player_num
         self.player = 1 if player_num == 2 else 2
-        self.whiteWin
-        self.blackWin
+
 
     def printBoard(self, invert_colors=True):
         """
