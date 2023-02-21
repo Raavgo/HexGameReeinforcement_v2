@@ -23,7 +23,7 @@ def train():
     else:
         model = AlphaHexLightning(n=8)
 
-    trainer = pl.Trainer(max_epochs=50, log_every_n_steps=10, accelerator="gpu", devices=1)
+    trainer = pl.Trainer(max_epochs=100, log_every_n_steps=10, accelerator="gpu")
     training_data = load(f'{args["data_path"]}/total_train_data_epoch_{epoch}.npy', allow_pickle=True)
     train_x, train_y = formatTrainingData(training_data)
 
@@ -39,12 +39,16 @@ def train():
     trainer.fit(model, loader, None)
     trainer.save_checkpoint(f'{args["model_path"]}/model_{epoch}.ckpt')
     trainer.save_checkpoint(f'{args["model_path"]}/current_model.ckpt')
+    return trainer.logged_metrics
 
 
 if __name__ == "__main__":
     import time
-
+    path = './numpy_bin'
     start = time.time()
-    train()
+    metrics = train()
     end = time.time()
     print(end - start)
+    
+    with open('logs/main_log.out', "a") as f:
+        f.write(f"EPOCH: {get_epoch(path)-1}: Current Model trainde 100 epochs with: {metrics['train_loss'].detach().numpy()}\n")
