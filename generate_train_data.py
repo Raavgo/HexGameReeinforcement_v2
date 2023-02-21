@@ -8,13 +8,13 @@ from numpy import asarray
 from numpy import save
 from Utility import get_epoch, reshapedSearchProbs
 
-def play_game(game, player1, player2, show:bool=True, flip:bool=False):
+def play_game(game, player_1, player_2, show:bool=True, flip:bool=False):
     """Plays a game then returns the final state."""
     new_game_data = []
     if flip:
-        player_dict = {1: player2, -1: player1}
+        player_dict = {1: player_2, -1: player_1}
     else:
-        player_dict = {1: player1, -1: player2}
+        player_dict = {1: player_1, -1: player_2}
     while not game.isTerminal:
         if show:
             print(game)
@@ -34,15 +34,16 @@ def play_game(game, player1, player2, show:bool=True, flip:bool=False):
 
         new_game_data.append((board, reshaped_search_probs, None))
         game = game.makeMove(m)
+    winner = player_dict[game.winner]
     if show:
         print(game, "\n")
 
         if game.winner != 0:
             print("player", game.winner, "(", end='')
-            print((player1.name if game.winner == 1 else player2.name) + ") wins")
+            print((winner.name) + ") wins")
         else:
             print("it's a draw")
-    outcome = 1 if game.winner == 1 else 0
+    outcome = 1 if winner == player_1 else 0
     new_training_data = [(board, searchProbs, outcome) for (board, searchProbs, throwaway) in new_game_data]
 
 
@@ -56,32 +57,37 @@ def selfPlay(current_model, num_games=2, training_data=[], show=False, flip=Fals
         print('Game #: ' + str(i))
 
         g = HexGame(8)
-        player1 = DeepLearningPlayer(current_model, rollouts=1000)
-        player2 = DeepLearningPlayer(current_model, rollouts=1000)
+        player_1 = DeepLearningPlayer(current_model, rollouts=1000)
+        player_2 = DeepLearningPlayer(current_model, rollouts=1000)
 
-        game, new_training_data = play_game(g, player1, player2, show, flip)
+        game, new_training_data = play_game(g, player_1, player_2, show, flip)
         training_data += new_training_data
         flip = not flip
     return training_data
 
+from time import time
 if __name__ == "__main__":
+    start = time()
     model_path = './model_checkpoint'
     data_path = './numpy_bin'
+    eval_path = "./eval"
 
     # create directory if there is none
     os.makedirs(name=model_path, exist_ok=True)
     os.makedirs(name=data_path, exist_ok=True)
+    os.makedirs(name=eval_path, exist_ok=True)
 
     n = 2
     index = int(os.environ['SLURM_ARRAY_TASK_ID'])
 
     epoch = get_epoch(data_path)
 
-    model_path += "/best.pth"
+    model_path += "/best_model.ckpt"
 
     model = AlphaHexLightning(8)
     if path.exists(model_path):
-        model.load_from_checkpoint(checkpoint_path=model_path)
+        model.load_from_checkpoint(checkpoint_path=model_path, n=8)
 
     train_data = asarray(selfPlay(model, num_games=n), dtype=object)
     save(f"{data_path}/train_data_epoch_{epoch}_{index}.npy", train_data)
+    print(f'Creating took {time()-start}')

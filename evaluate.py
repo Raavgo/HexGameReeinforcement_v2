@@ -2,6 +2,7 @@ from AlphaZero.Player import DeepLearningPlayer
 from AlphaZero.AlphaHexLightning import AlphaHexLightning
 from Enviorment.HexGame import HexGame
 from Utility import getArgs
+from random import randint
 import os
 import shutil
 
@@ -22,7 +23,7 @@ def play_game(game, player_1, player_2, show, flip=False):
             raise Exception("invalid move: " + str(m))
 
         game = game.makeMove(m)
-    winner = player_1 if game.winner == 1 else player_2
+    winner = player_dict[game.winner]
     if show:
         print(game, "\n")
         if game.winner != 0:
@@ -33,7 +34,7 @@ def play_game(game, player_1, player_2, show, flip=False):
 
 def evaluateModel(current_model, best_model, iteration):
     #Make sure we always flip the board
-    iteration = iteration + 1 if iteration%2==1 else iteration
+
     index = int(os.environ['SLURM_ARRAY_TASK_ID'])
 
     player_current = DeepLearningPlayer(current_model, rollouts=400)
@@ -65,8 +66,8 @@ if __name__ == "__main__":
     if not os.path.isfile(best_model):
         shutil.copy(current_model, best_model)
         exit()
-    os.environ['SLURM_ARRAY_TASK_ID'] = "1234"
+    testgames = 4
     current_model = AlphaHexLightning.load_from_checkpoint(current_model, n=8)
     best_model = AlphaHexLightning.load_from_checkpoint(best_model, n=8)
-    evaluateModel(current_model, best_model, 2)
+    evaluateModel(current_model, best_model, testgames)
 
