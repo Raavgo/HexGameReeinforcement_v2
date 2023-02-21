@@ -1,14 +1,12 @@
 import numpy as np
 from scipy.ndimage import label
 
-import sys
+_adj = np.ones([3, 3], int)
+_adj[0, 0] = 0
+_adj[2, 2] = 0
 
-_adj = np.ones([3,3], int)
-_adj[0,0] = 0
-_adj[2,2] = 0
-
-RED   = u"\033[1;31m"
-BLUE  = u"\033[1;34m"
+RED = u"\033[1;31m"
+BLUE = u"\033[1;34m"
 RESET = u"\033[0;0m"
 CIRCLE = u"\u25CF"
 
@@ -19,12 +17,14 @@ EMPTY_CELL = u"\u00B7"
 RED_BORDER = RED + "-" + RESET
 BLUE_BORDER = BLUE + "\\" + RESET
 
+
 def print_char(i):
     if i > 0:
         return BLUE_DISK
     if i < 0:
         return RED_DISK
     return EMPTY_CELL
+
 
 class HexGame:
 
@@ -41,13 +41,13 @@ class HexGame:
 
     def __repr__(self):
         if self._repr is None:
-            self._repr = u"\n" + (" " + RED_BORDER)*self.size +"\n"
+            self._repr = u"\n" + (" " + RED_BORDER) * self.size + "\n"
             for i in range(self.size):
                 self._repr += " " * i + BLUE_BORDER + " "
                 for j in range(self.size):
-                    self._repr += print_char(self.board[i,j]) + " "
+                    self._repr += print_char(self.board[i, j]) + " "
                 self._repr += BLUE_BORDER + "\n"
-            self._repr += " "*(self.size) + " " + (" " + RED_BORDER) * self.size
+            self._repr += " " * (self.size) + " " + (" " + RED_BORDER) * self.size
         return self._repr
 
     def __hash__(self):
@@ -59,8 +59,6 @@ class HexGame:
         return repr(self) == repr(other)
 
     def makeMove(self, move):
-        """Returns a new ConnectionGame in which move has been played.
-        A move is a column into which a piece is dropped."""
         hg = HexGame(self.size)
         hg.board = np.array(self.board)
         hg.board[move[0], move[1]] = self.turn
